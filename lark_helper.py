@@ -30,10 +30,17 @@ class LarkHelper(object):
     def download_img(self, msg):
         self._update_access_token()
         msg_obj = msg.get("event", {}).get("message", {})
-        if msg_obj.get("message_type") != "image":
-            return None
         content_obj = json.loads(msg_obj.get("content", "{}"))
-        img_key = content_obj.get("image_key")
+        img_key = ""
+        if msg_obj.get("message_type") == "image":
+            img_key = content_obj.get("image_key")
+        elif msg_obj.get("message_type") == "post":
+            for content_item in content_obj.get("content", []):
+                for item in content_item:
+                    if "image_key" in item:
+                        img_key = item.get("image_key")
+        if not img_key:
+            return
         msg_id = msg_obj.get("message_id")
         url = f"{self._domain}/open-apis/im/v1/messages/{msg_id}/resources/{img_key}?type=image"
         req = Request(url)
@@ -59,6 +66,7 @@ class LarkHelper(object):
         return response.json().get("data", {}).get("image_key")
 
     def reply_img(self, msg_id, img_key):
+        self._update_access_token()
         url = f"{self._domain}/open-apis/im/v1/messages/{msg_id}/reply"
         content = {"image_key": img_key}
         data = {
@@ -70,3 +78,17 @@ class LarkHelper(object):
             "Authorization": f"Bearer {self._access_token}",
         }
         requests.post(url, data=data, headers=headers)
+
+    def reply_text(self, msg_id, text):
+        self._update_access_token()
+        url = f"{self._domain}/open-apis/im/v1/messages/{msg_id}/reply"
+        data = {
+            "content": json.dumps({"text": text}),
+            "uuid": str(uuid.uuid4()),
+            "msg_type": "text",
+        }
+        headers = {
+            "Authorization": f"Bearer {self._access_token}",
+        }
+        resp = requests.post(url, data=data, headers=headers)
+        print(resp.json())

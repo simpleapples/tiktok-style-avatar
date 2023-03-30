@@ -12,15 +12,11 @@ app = Flask(__name__)
 msg_ids = set()
 
 
-def reply(req):
+def async_reply_img(req, msg_id):
     lark_helper = LarkHelper(
         os.environ.get("LARK_APP_KEY"), os.environ.get("LARK_APP_SECRET")
     )
-
-    msg_id = req.get("event", {}).get("message", {}).get("message_id")
-    if msg_id in msg_ids:
-        msg_ids.add(msg_id)
-        return None
+    lark_helper.reply_text(msg_id, "Image processing...")
 
     source_img = lark_helper.download_img(req)
     img_helper = ImageHelper()
@@ -37,8 +33,12 @@ def reply(req):
 @app.route("/api/lark/callback", methods=["POST"])
 def lark_callback():
     req = request.get_json()
+    msg_id = req.get("event", {}).get("message", {}).get("message_id")
+    if msg_id in msg_ids:
+        msg_ids.add(msg_id)
+        return jsonify({"success": True})
 
-    thread = threading.Thread(target=reply, args=(req,))
+    thread = threading.Thread(target=async_reply_img, args=(req, msg_id))
     thread.daemon = True
     thread.start()
 
